@@ -34,8 +34,8 @@ const int v[s_no*a_no] = {1,0,0,0,0,0,
 //struct listing variable model parameters:
 struct Parameters{
 	// Number of exposed and infectious classes
-	int Le = 1;
-	int Li = 1;
+	int Le = 2;
+	int Li = 2;
 	// Number of reaction channels:
 	int a_no = 6 + 2*Le + 2*Li;
 	// Number of species:
@@ -208,7 +208,7 @@ struct Parameters{
 	}
 
 	//check that beta is correctly reset to initial value...
-	void set_initial_conditions(double n[s_no]){
+	void set_initial_conditions(double * n){
         n[0] = std::min(int(N/R0),int((1.-initial_uptake)*N)) ;
         n[0] = int((1-initial_uptake)*N);
         int I_init = 0;//std::max(int(N*(mu/beta)*((1.-initial_uptake)*R0-1.)), 0);
@@ -232,7 +232,7 @@ struct Parameters{
 	}
 
 	// Reaction rates: SEIR model with varying vaccine uptake
-	void reactions_update(double n[s_no],  double a[a_no], double vaccine_uptake, double beta){
+	void reactions_update(double * n,  double * a, double vaccine_uptake, double beta){
 		// Birth of susceptible
 		a[0] = (1-vaccine_uptake)*mu*N;
 		//Infection of susceptible:
@@ -259,8 +259,9 @@ struct Parameters{
 			a[5+i + 2*Le + Li] = mu*n[5+Le+i];
 		}
 	}
-	std::array & set_v(){
-		std::array<std::array<int, s_no>, a_no> v;
+
+    std::vector<std::vector<int>> v;
+	void set_v(std::vector<std::vector<int>> &v, int s, int a, int Le, int Li){
 			v[0] = {1,0,0,0,0,0};
 			v[1] = {-1,1,0,0,0,0};
 			v[1][6] = 1;
@@ -283,8 +284,8 @@ struct Parameters{
 
 			// Exposed death
 			for(int i = 1; i <=Le; i++){
-				a[5+i + Le] = {0,-1,0,0,0,0};
-				a[5+i + Le][5+i] = -1;
+				v[5+i + Le] = {0,-1,0,0,0,0};
+				v[5+i + Le][5+i] = -1;
 			}
 			// Infectious stages
 		    for(int i = 1; i <Li; i++){
@@ -298,11 +299,11 @@ struct Parameters{
 
 			// Death of infectious
 		    for(int i = 1; i <=Li; i++){
-				a[5 +2*Le+i + Li] = {0,0,-1,0,0,0};
-				a[5+2*Le +i + Li][5+Le+i] = -1;
+				v[5 +2*Le+i + Li] = {0,0,-1,0,0,0};
+				v[5+2*Le +i + Li][5+Le+i] = -1;
 			}
 
-			return & v
+			//return  v;
 	}
 	
 

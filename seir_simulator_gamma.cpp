@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     //Initialise model parameters
     Parameters par;
     par.set_model_parameters(argc, argv);
-    v = * par.set_v();
+    par.set_v(par.v, par.s_no, par.a_no, par.Le, par.Li);
 
 
 	srand(par.seed);
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
         // Updating the internal Possion process and system state according to the reaction with fired:
             t = t+ dt;
             P[nu] -= log(gsl_rng_uniform_pos (rng) );
-            for(int i = 0; i < par.s_no; i++) n[i] += v[nu][i];
+            for(int i = 0; i < par.s_no; i++) n[i] += par.v[nu][i];
 
 
         // Internal clocks are updated:
