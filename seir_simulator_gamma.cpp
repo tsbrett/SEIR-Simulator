@@ -11,6 +11,8 @@
 #include <vector> // std::vector
 #include "./seir_parameters_gamma.h"
 #include <string>
+#include <array>
+
 
 
 // Need to fix this so model doesn't need recompiling for each parameter combination
@@ -25,7 +27,7 @@ int main(int argc, char **argv)
     //Initialise model parameters
     Parameters par;
     par.set_model_parameters(argc, argv);
-    v = * par.set_v();
+    std::array<std::array<int, s_no>, a_no> v = par.set_v();
 
 
 	srand(par.seed);
@@ -46,8 +48,8 @@ int main(int argc, char **argv)
 
         /**** algorithm variables: ****/
         double t = 0;
-        double a[par.a_no];
-        double n[par.s_no];
+        double a[a_no];
+        double n[s_no];
         int nu;
         double dt;
         double te = 0;
@@ -56,13 +58,13 @@ int main(int argc, char **argv)
 
 
         // Internal Poisson processes, internal clocks, next-firing times:
-        double P[par.a_no], T[par.a_no], D[par.a_no];
+        double P[a_no], T[a_no], D[a_no];
 
   
         //Next-reaction method algorithm
 
         //Initialisation of internal Poisson processes and internal clocks:
-        for(int k = 0; k < par.a_no; k++){
+        for(int k = 0; k < a_no; k++){
             P[k] = -log((double)rand()/RAND_MAX);
             T[k] = 0;
         }
@@ -73,7 +75,7 @@ int main(int argc, char **argv)
             par.reactions_update(n,  a, par.vaccine_uptake(t), par.forcing_function(t));
         // Calculating which reaction fires next:
             dt = par.Tend;
-            for(int k = 0; k < par.a_no; k++){
+            for(int k = 0; k < a_no; k++){
                 D[k] = (P[k] - T[k])/a[k];
                 if(D[k] <= dt && a[k] > 10e-20){
                     dt = D[k]; nu = k;
@@ -84,25 +86,25 @@ int main(int argc, char **argv)
             while(t+dt > te){
                     if(te >= par.Tstart){
                          out << te-par.Tstart<< ",";
-                         for(int i=0; i < par.s_no; i++){
+                         for(int i=0; i < s_no - Li - Le; i++){
                             out << n[i] << ",";
                          }
                          out << par.vaccine_uptake(t) << ","
                               << par.term_time_forcing(t)/(par.gamm +par.mu) << ","
                               << run << std::endl;
                     }
-                     n[par.s_no-1] = 0;
+                     n[5] = 0;
                     te += par.dte;
                 }
 
         // Updating the internal Possion process and system state according to the reaction with fired:
             t = t+ dt;
             P[nu] -= log(gsl_rng_uniform_pos (rng) );
-            for(int i = 0; i < par.s_no; i++) n[i] += v[nu][i];
+            for(int i = 0; i < s_no; i++) n[i] += v[nu][i];
 
 
         // Internal clocks are updated:
-            for(int k = 0; k < par.a_no; k++){
+            for(int k = 0; k < a_no; k++){
                 T[k] += dt*a[k];
             }
         }

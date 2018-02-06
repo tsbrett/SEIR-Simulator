@@ -6,6 +6,8 @@
 //#include <limits> //  std::numeric_limits
 #include <ctime>  // time(NULL)
 #include <string> // string
+#include <array>
+
 
 
 /* Fixed SEIR model parameters */
@@ -30,16 +32,18 @@ const int v[s_no*a_no] = {1,0,0,0,0,0,
 
 */
 
+// Number of exposed and infectious classes
+const int Le = 4;
+const int Li = 4;
+// Number of reaction channels:
+const int a_no = 6 + 2*Le + 2*Li;
+// Number of species:
+const int s_no = 6 +Le + Li;
+
 
 //struct listing variable model parameters:
 struct Parameters{
-	// Number of exposed and infectious classes
-	int Le = 1;
-	int Li = 1;
-	// Number of reaction channels:
-	int a_no = 6 + 2*Le + 2*Li;
-	// Number of species:
-	int s_no = 6 +Le + Li;
+
 
 	// Measles-like defaults:
 	double N = 1e6;
@@ -209,10 +213,10 @@ struct Parameters{
 
 	//check that beta is correctly reset to initial value...
 	void set_initial_conditions(double n[s_no]){
-        n[0] = std::min(int(N/R0),int((1.-initial_uptake)*N)) ;
+        //n[0] = std::min(int(N/R0),int((1.-initial_uptake)*N)) ;
         n[0] = int((1-initial_uptake)*N);
-        int I_init = 0;//std::max(int(N*(mu/beta)*((1.-initial_uptake)*R0-1.)), 0);
-        int E_init = 0;//int(gamm/rho)*I_init;
+        double I_init = 0;//std::max(int(N*(mu/beta)*((1.-initial_uptake)*R0-1.)), 0);
+        double E_init = 0;//int(gamm/rho)*I_init;
         // Initial exposed
         for(int i = 6; i <= 5+Le; i++){
         	n[i] = int(E_init/Le);
@@ -249,29 +253,30 @@ struct Parameters{
 
 		// Exposed to infectious
         for(int i = 1; i <=Le; i++){
-			a[5+i] = rho*n[5+i]/Le;
+			a[5+i] = rho*n[5+i]*Le;
 			a[5+i + Le] = mu*n[5+i];
 		}
 
-		// Infectious to exposed
+		// Infectious to recovered
 		for(int i = 1; i <=Li; i++){
-			a[5+i+2*Le] = rho*n[5+Le+i]/Li;
+			a[5+i+2*Le] = gamm*n[5+Le+i]*Li;
 			a[5+i + 2*Le + Li] = mu*n[5+Le+i];
 		}
 	}
-	std::array & set_v(){
+
+	std::array<std::array<int, s_no>, a_no>  set_v(){
 		std::array<std::array<int, s_no>, a_no> v;
 			v[0] = {1,0,0,0,0,0};
 			v[1] = {-1,1,0,0,0,0};
 			v[1][6] = 1;
 			v[2] = {-1,0,0,0,0,0};
-			v[3 ]= {0,0,0,-1,0,0};
+			v[3]= {0,0,0,-1,0,0};
 			v[4]= {0,0,0,0,-1,0};
 			v[5]= {0,0,0,0,1,0};
 
 			// Exposed stages
 		    for(int i = 1; i <Le; i++){
-				v[5+i] = {0,0,0,0,0,0};
+				//v[5+i] = {0,0,0,0,0,0};
 				v[5+i][5+i] = -1;
 				v[5+i][5+i+1] = 1;
 			}
@@ -283,30 +288,29 @@ struct Parameters{
 
 			// Exposed death
 			for(int i = 1; i <=Le; i++){
-				a[5+i + Le] = {0,-1,0,0,0,0};
-				a[5+i + Le][5+i] = -1;
+				v[5+i + Le] = {0,-1,0,0,0,0};
+				v[5+i + Le][5+i] = -1;
 			}
 			// Infectious stages
 		    for(int i = 1; i <Li; i++){
-				v[5+2*Le+i] = {0,0,0,0,0,0};
+				//v[5+2*Le+i] = {0,0,0,0,0,0};
 				v[5+2*Le+i][5+Le+i] = -1;
 				v[5+2*Le+i][5+Le+i+1] = 1;
 			}
 			// Recovery
-			v[5+2*Le+Li] = {0,0,-1,1,0,0};
+			v[5+2*Le+Li] = {0,0,-1,1,0,1};
 			v[5+2*Le+Li][5+Le+Li] = -1;
 
 			// Death of infectious
 		    for(int i = 1; i <=Li; i++){
-				a[5 +2*Le+i + Li] = {0,0,-1,0,0,0};
-				a[5+2*Le +i + Li][5+Le+i] = -1;
+				v[5 +2*Le+i + Li] = {0,0,-1,0,0,0};
+				v[5+2*Le +i + Li][5+Le+i] = -1;
 			}
 
-			return & v
-	}
+			return  v;
 	
 
-
+    }
 
 
     // this code may be used to incorporate future brownian bridge option
