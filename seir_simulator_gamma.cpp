@@ -43,7 +43,8 @@ int main(int argc, char **argv)
         // Output csv header
         out << "time" << "," << "S" << "," << "E" << ","  << "I" << ","
             << "R" << ","  << "V" << ","  << "cases" << ","
-            << "uptake" << "," << "R0" << "," << "run" << std::endl;
+            << "reported_cases" << ","
+            << "uptake" << "," << "R0" << ","<< "eta" << "," << "run" << std::endl;
 
 
         /**** algorithm variables: ****/
@@ -72,7 +73,7 @@ int main(int argc, char **argv)
         while(t < par.Tend){
         // Updating the reaction rates:
             //par.beta = par.get_beta(t,bb_step);//par.set_beta(t,par.Tend);
-            par.reactions_update(n,  a, par.vaccine_uptake(t), par.forcing_function(t));
+            par.reactions_update(n,  a, t); //par.vaccine_uptake(t), par.forcing_function(t));
         // Calculating which reaction fires next:
             dt = par.Tend;
             for(int k = 0; k < a_no; k++){
@@ -89,9 +90,11 @@ int main(int argc, char **argv)
                          for(int i=0; i < s_no - Li - Le; i++){
                             out << n[i] << ",";
                          }
-                         out << par.vaccine_uptake(t) << ","
-                              << par.term_time_forcing(t)/(par.gamm +par.mu) << ","
-                              << run << std::endl;
+                         out << par.reported_cases(rng, n[s_no - Li - Le-1]) << ","
+                             << par.vaccine_uptake(t) << ","
+                             << par.term_time_forcing(t)/(par.gamm +par.mu) << ","
+                             << par.eta_function(t) << ","
+                             << run << std::endl;
                     }
                      n[5] = 0;
                     te += par.dte;

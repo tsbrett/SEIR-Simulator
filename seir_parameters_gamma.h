@@ -33,8 +33,8 @@ const int v[s_no*a_no] = {1,0,0,0,0,0,
 */
 
 // Number of exposed and infectious classes
-const int Le = 4;
-const int Li = 4;
+const int Le = 1;
+const int Li = 1;
 // Number of reaction channels:
 const int a_no = 6 + 2*Le + 2*Li;
 // Number of species:
@@ -50,7 +50,6 @@ struct Parameters{
 	double R0 = 15.;
 	double gamm = 1.0/5.0; //recovery rate
 	double rho = 1.0/8.0; // exposed to infected rate
-	double eta = 1.0/7.; // importation rate
 	double mu = 1.0/(75.0*365.0);
 	double beta = R0*(gamm + mu)*(rho+mu)/rho; // as mu << rho
 
@@ -66,15 +65,24 @@ struct Parameters{
 	double dte=1.0; 	// Output time-step size:
 
 
-	double initial_uptake = 0.92;
-	double final_uptake = 0.70;
-	double ramp_start = 40*365;
-	double ramp_duration = 0*365;
-	double ramp_end = ramp_start + ramp_duration;
-	double ramp_slope = (final_uptake - initial_uptake)/ramp_duration;
+	double v_iu = 0.92;
+	double v_fu = 0.70;
+	double v_rs = 40*365;
+	double v_rd = 0*365;
+
+
+	double eta_i = 1.0/7.;
+	double eta_f = 1.0/7.;
+	double eta_rs = 40*365;
+	double eta_rd = 0*365;
+	//double ramp_end = ramp_start + ramp_duration;
+	//double ramp_slope = (v_iu - v_iu)/ramp_duration;
+
+	double rep_prob = 0.1;
+	double rep_dispersion = 1;
 
 	double runs = 1; // number of replicates
-	double seed = 37427942; // number of replicates
+	double seed = 37427942; // rng seed
 	std::string folder = "./";
 	std::string run_name = "./EPI_";
 
@@ -94,9 +102,6 @@ struct Parameters{
 		    }
 		    if(ts.substr(0, 4).compare("rho=") == 0){
 		        rho = std::stof(ts.substr(4));
-		    }
-		    if(ts.substr(0, 4).compare("eta=") == 0){
-		        eta = std::stof(ts.substr(4));
 		    }
 		    if(ts.substr(0, 3).compare("mu=") == 0){
 		        mu = std::stof(ts.substr(3));
@@ -125,18 +130,6 @@ struct Parameters{
 		    if(ts.substr(0, 3).compare("ts=") == 0){
 		        dte= std::stof(ts.substr(3));
 		    }
-		    if(ts.substr(0, 3).compare("iu=") == 0){
-		        initial_uptake = std::stof(ts.substr(3));
-		    }
-		    if(ts.substr(0, 3).compare("fu=") == 0){
-		        final_uptake = std::stof(ts.substr(3));
-		    }
-		    if(ts.substr(0, 3).compare("rs=") == 0){
-		        ramp_start = 365*std::stof(ts.substr(3));
-		    }
-		    if(ts.substr(0, 3).compare("rd=") == 0){
-		        ramp_duration = 365*std::stof(ts.substr(3));
-		    }
 		    if(ts.substr(0, 5).compare("runs=") == 0){
 		        runs = std::stof(ts.substr(5));
 		    }
@@ -149,11 +142,46 @@ struct Parameters{
             if(ts.substr(0, 3).compare("rn=") == 0){
 		        run_name = ts.substr(3);
 		    }
+		    if(ts.substr(0, 6).compare("rprob=") == 0){
+		        rep_prob = std::stof(ts.substr(6));
+		    }
+		    if(ts.substr(0, 5).compare("rdis=") == 0){
+		        rep_dispersion = std::stof(ts.substr(5));
+		    }
+		    if(ts.substr(0, 5).compare("v_iu=") == 0){
+		        v_iu = std::stof(ts.substr(5));
+		    }
+		    if(ts.substr(0, 5).compare("v_fu=") == 0){
+		        v_fu = std::stof(ts.substr(5));
+		    }
+		    if(ts.substr(0, 5).compare("v_rs=") == 0){
+		        v_rs = 365*std::stof(ts.substr(5));
+		    }
+		    if(ts.substr(0, 5).compare("v_rd=") == 0){
+		        v_rd = 365*std::stof(ts.substr(5));
+		    }
+
+
+		    if(ts.substr(0, 6).compare("eta_i=") == 0){
+		        eta_i = std::stof(ts.substr(6));
+		    }
+		    if(ts.substr(0, 6).compare("eta_f=") == 0){
+		        eta_f = std::stof(ts.substr(6));
+		    }
+		    if(ts.substr(0, 7).compare("eta_rs=") == 0){
+		        eta_rs = 365*std::stof(ts.substr(7));
+		    }
+		    if(ts.substr(0, 7).compare("eta_rd=") == 0){
+		        eta_rd = 365*std::stof(ts.substr(7));
+		    }
+
+
+
 		}
 	    beta = R0*(gamm + mu)*(rho+mu)/rho; // as mu << rho
 	    Tend = Tstart + Tdur;
-	    ramp_end = ramp_start + ramp_duration;
-		ramp_slope = (final_uptake - initial_uptake)/ramp_duration;
+	    //ramp_end = ramp_start + ramp_duration;
+		//ramp_slope = (v_iu - v_iu)/ramp_duration;
 	}
 
 
@@ -198,24 +226,62 @@ struct Parameters{
 		}
 	}
 
+//
+    double ramp_function(double t, double duration, double initial_time,
+                         double initial_value, double final_value){
+
+ 	    double ramp_slope = (final_value - initial_value)/duration;
+ 	    double final_time = initial_time + duration;
+
+	    double vu = initial_value;
+	    double t_shift = t - Tstart;
+	    if( t_shift > initial_time && t_shift <= final_time){
+	        vu = initial_value + ramp_slope*(t_shift-initial_time);
+	    }
+	    else if(t_shift > final_time){
+	        vu = final_value;
+	    }
+		return(vu);
+    }
+
 	//Vaccine uptake function:
 	double vaccine_uptake(double t){
-	    double vu = initial_uptake;
+	    return(ramp_function(t, v_rd,v_rs,v_iu, v_fu));
+	   }
+
+
+	double eta_function(double t){
+	    return(ramp_function(t,eta_rd,eta_rs,eta_i,eta_f));
+	}
+
+
+/*
+
+	double vaccine_uptake(double t){
+	    double vu = v_iu;
 	    double t_shift = t - Tstart;
 	    if( t_shift > ramp_start && t_shift <= ramp_end){
-	        vu = initial_uptake + ramp_slope*(t_shift-ramp_start);
+	        vu = v_iu + ramp_slope*(t_shift-ramp_start);
 	    }
 	    else if(t_shift > ramp_end){
-	        vu = final_uptake;
+	        vu = v_iu;
 	    }
 		return(vu);
 	}
+*/
+	//
+
+
+
+
+
+
 
 	//check that beta is correctly reset to initial value...
 	void set_initial_conditions(double n[s_no]){
-        //n[0] = std::min(int(N/R0),int((1.-initial_uptake)*N)) ;
-        n[0] = int((1-initial_uptake)*N);
-        double I_init = 0;//std::max(int(N*(mu/beta)*((1.-initial_uptake)*R0-1.)), 0);
+        //n[0] = std::min(int(N/R0),int((1.-v_iu)*N)) ;
+        n[0] = int((1-v_iu)*N);
+        double I_init = 0;//std::max(int(N*(mu/beta)*((1.-v_iu)*R0-1.)), 0);
         double E_init = 0;//int(gamm/rho)*I_init;
         // Initial exposed
         for(int i = 6; i <= 5+Le; i++){
@@ -227,7 +293,7 @@ struct Parameters{
         	n[i] = int(I_init/Li);
         	n[2] += n[i];
         }
-        n[4] = int(initial_uptake*N);
+        n[4] = int(v_iu*N);
         n[3] = N - n[0] - n[1] - n[2] - n[4];
         n[5] = 0;
 
@@ -236,11 +302,11 @@ struct Parameters{
 	}
 
 	// Reaction rates: SEIR model with varying vaccine uptake
-	void reactions_update(double n[s_no],  double a[a_no], double vaccine_uptake, double beta){
+	void reactions_update(double n[s_no],  double a[a_no], double t){ // double vaccine_uptake, double beta){
 		// Birth of susceptible
-		a[0] = (1-vaccine_uptake)*mu*N;
+		a[0] = (1-vaccine_uptake(t))*mu*N;
 		//Infection of susceptible:
-		a[1] = (n[0]/(N-1))*(beta*n[2] + eta) ;
+		a[1] = (n[0]/(N-1))*(forcing_function(t)*n[2] + eta_function(t)) ;
 		// Death of susceptible
 		a[2] = mu*n[0];
 		// Death of recovered
@@ -248,7 +314,7 @@ struct Parameters{
 		// Death of vaccinated
 		a[4] = mu*n[4];
 		// Vaccinated births
-		a[5] = vaccine_uptake*mu*N;
+		a[5] = vaccine_uptake(t)*mu*N;
 
 
 		// Exposed to infectious
@@ -312,7 +378,12 @@ struct Parameters{
 
     }
 
-
+    int reported_cases(const gsl_rng * r,double cases ){
+        //Note: parameterisation of gsl negative binomial is that it returns
+        //number of failures before n successes, not vice versa
+        return(gsl_ran_negative_binomial(r, rep_dispersion/(rep_prob*cases+rep_dispersion),
+                                  rep_dispersion));
+    }
     // this code may be used to incorporate future brownian bridge option
 
 
