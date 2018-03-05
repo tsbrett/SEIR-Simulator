@@ -44,6 +44,7 @@ int main(int argc, char **argv)
         out << "time" << "," << "S" << "," << "E" << ","  << "I" << ","
             << "R" << ","  << "V" << ","  << "cases" << ","
             << "reported_cases" << ","
+            << "reporting_frac" << ","
             << "uptake" << "," << "R0" << ","<< "eta" << "," << "run" << std::endl;
 
 
@@ -71,10 +72,10 @@ int main(int argc, char **argv)
         }
 
         while(t < par.Tend){
-        // Updating the reaction rates:
+            // Updating the reaction rates:
             //par.beta = par.get_beta(t,bb_step);//par.set_beta(t,par.Tend);
             par.reactions_update(n,  a, t); //par.vaccine_uptake(t), par.forcing_function(t));
-        // Calculating which reaction fires next:
+            // Calculating which reaction fires next:
             dt = par.Tend;
             for(int k = 0; k < a_no; k++){
                 D[k] = (P[k] - T[k])/a[k];
@@ -83,24 +84,25 @@ int main(int argc, char **argv)
                 }
             }
 
-        // Output (while loop incase time-to-next reaction (dt) is larger than one timestep)
+            // Output (while loop incase time-to-next reaction (dt) is larger than one timestep)
             while(t+dt > te){
-                    if(te >= par.Tstart){
-                         out << te-par.Tstart<< ",";
-                         for(int i=0; i < s_no - Li - Le; i++){
-                            out << n[i] << ",";
-                         }
-                         out << par.reported_cases(rng, n[s_no - Li - Le-1]) << ","
-                             << par.vaccine_uptake(t) << ","
-                             << par.term_time_forcing(t)/(par.gamm +par.mu) << ","
-                             << par.eta_function(t) << ","
-                             << run << std::endl;
-                    }
-                     n[5] = 0;
-                    te += par.dte;
+                if(te >= par.Tstart){
+                     out << te-par.Tstart<< ",";
+                     for(int i=0; i < s_no - Li - Le; i++){
+                        out << n[i] << ",";
+                     }
+                     out << par.reported_cases(rng, n[s_no - Li - Le-1], t) << ","
+                         << par.rep_prob_function(t) << ","
+                         << par.vaccine_uptake(t) << ","
+                         << par.R0_function(t) << ","
+                         << par.eta_function(t) << ","
+                         << run << std::endl;
                 }
+                n[5] = 0;
+                te += par.dte;
+            }
 
-        // Updating the internal Possion process and system state according to the reaction with fired:
+            // Updating the internal Possion process and system state according to the reaction with fired:
             t = t+ dt;
             P[nu] -= log(gsl_rng_uniform_pos (rng) );
             for(int i = 0; i < s_no; i++) n[i] += v[nu][i];
