@@ -94,7 +94,7 @@ struct Parameters{
 	double runs = 1; // number of replicates
 	double seed = 37427942; // rng seed
 	std::string folder = "./";
-	std::string run_name = "./EPI_";
+	std::string run_name = "./epi_data";
 
 	// Set model parameters using argc and argv inputs
 	void set_model_parameters(int c, char **v){
@@ -349,6 +349,9 @@ struct Parameters{
         n[0] = int((1-v_i)*N_i);
         double I_init = 0;//std::max(int(N*(mu/beta)*((1.-v_i)*R0-1.)), 0);
         double E_init = 0;//int(gamm/rho)*I_init;
+        n[1] = 0;
+        n[2] = 0;
+
         // Initial exposed
         for(int i = 6; i <= 5+Le; i++){
         	n[i] = int(E_init/Le);

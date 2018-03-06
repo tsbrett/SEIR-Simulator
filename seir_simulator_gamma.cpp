@@ -34,18 +34,18 @@ int main(int argc, char **argv)
 	gsl_rng * rng = gsl_rng_alloc (gsl_rng_taus);
 	gsl_rng_set (rng, rand());
 
+    std::string filename = par.folder + "/"+ par.run_name + ".csv";
+    out.open(filename.c_str());
+
+    // Output csv header
+    out << "time" << "," << "S" << "," << "E" << ","  << "I" << ","
+        << "R" << ","  << "V" << ","  << "cases" << ","
+        << "reported_cases" << ","
+        << "reporting_frac" << ","
+        << "uptake" << "," << "R0" << ","<< "eta" << "," << "run" << std::endl;
+
 
     for(int run = 1; run <= par.runs; run++){
-
-
-        std::string filename = par.folder + "/"+ par.run_name + std::to_string(run) + ".csv";
-        out.open(filename.c_str());
-        // Output csv header
-        out << "time" << "," << "S" << "," << "E" << ","  << "I" << ","
-            << "R" << ","  << "V" << ","  << "cases" << ","
-            << "reported_cases" << ","
-            << "reporting_frac" << ","
-            << "uptake" << "," << "R0" << ","<< "eta" << "," << "run" << std::endl;
 
 
         /**** algorithm variables: ****/
@@ -113,10 +113,10 @@ int main(int argc, char **argv)
                 T[k] += dt*a[k];
             }
         }
-        out.close();
         std::cerr << "Run " << run << std::endl;
-
     }
+
+out.close();
 return(0);
 }
 

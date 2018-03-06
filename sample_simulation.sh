@@ -8,6 +8,6 @@
 
 
 #eta test
-./seir_simulator_gamma folder=./ ts=7 force=term T=140 runs=1 \
-eta_i=1 eta_f=1 R0_i=0 R0_f=1 R0_rs=0 R0_rd=140 v_i=0.0 v_f=0.0 force=none
+./seir_simulator_gamma folder=./ ts=7 force=term T=140 runs=20 \
+eta_i=1 eta_f=1 R0_i=0 R0_f=1 R0_rs=1 R0_rd=140 v_i=0.0 v_f=0.0 force=none
 
