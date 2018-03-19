@@ -238,6 +238,9 @@ struct Parameters{
             if(ts.substr(0, 5).compare("bb_a=") == 0){
 		        bb_a = std::stof(ts.substr(5));
 		    }
+		    if(ts.substr(0, 5).compare("bb_v=") == 0){
+		        bb_var = std::stof(ts.substr(5));
+		    }
             if(ts.substr(0, 5).compare("ou_d=") == 0){
 		       R0_ou_drift = std::stof(ts.substr(5));
 		    }
