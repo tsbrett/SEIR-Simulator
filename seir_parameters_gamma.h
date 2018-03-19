@@ -96,6 +96,19 @@ struct Parameters{
 	std::string folder = "./";
 	std::string run_name = "./epi_data";
 
+	int R0_ramp = 1; // options: linear, bb, ou, constant
+	double bb_var =0.00001;
+	double bb_a =1;
+	double R0_ou_drift =0.1;
+    double R0_ou_var=0.00001;
+    double R0_ou_lower_limit=0;
+    double R0_ou_upper_limit=1;
+
+
+
+
+
+
 	// Set model parameters using argc and argv inputs
 	void set_model_parameters(int c, char **v){
 		for(int i =c -1; i > 0; i--){
@@ -215,11 +228,36 @@ struct Parameters{
 		    if(ts.substr(0, 6).compare("R0_rd=") == 0){
 		        R0_rd = 365*std::stof(ts.substr(6));
 		    }
+		    if(ts.substr(0, 8).compare("R0_ramp=") == 0){
+		        if(ts.substr(8,14).compare("linear") == 0){ R0_ramp = 0;}
+		    	else if(ts.substr(8,13).compare("fixed") == 0){ R0_ramp = 1;}
+		    	else if(ts.substr(8,10).compare("bb") == 0){R0_ramp = 2;}
+		        else if(ts.substr(8,10).compare("ou") == 0){R0_ramp = 3;}
+		    	else{std::cerr << "Invalid argument to force. Default used: linear" << std::endl;}
+		    }
+            if(ts.substr(0, 5).compare("bb_a=") == 0){
+		        bb_a = std::stof(ts.substr(5));
+		    }
+            if(ts.substr(0, 5).compare("ou_d=") == 0){
+		       R0_ou_drift = std::stof(ts.substr(5));
+		    }
+            if(ts.substr(0, 5).compare("ou_v=") == 0){
+		       R0_ou_var = std::stof(ts.substr(5));
+		    }
+            if(ts.substr(0, 5).compare("ou_l=") == 0){
+		       R0_ou_lower_limit = std::stof(ts.substr(5));
+		    }
+            if(ts.substr(0, 5).compare("ou_u=") == 0){
+		       R0_ou_upper_limit = std::stof(ts.substr(5));
+		    }
+
+
 
 		}
 
 	    Tend = Tstart + Tdur;
 	}
+	std::vector<double> beta_ts;
 
 
 	double seasonal_forcing(double t){
@@ -302,8 +340,37 @@ struct Parameters{
 
 
 	double R0_function(double t){
-	    return(ramp_function(t,R0_rd,R0_rs,R0_i,R0_f)
-	           *forcing_function(t));
+	    double R0;
+        if(R0_ramp == 0){
+            R0 = ramp_function(t,R0_rd,R0_rs,R0_i,R0_f);
+        }
+        if(R0_ramp == 1){
+            R0 = R0_i;
+        }
+        if(R0_ramp == 2){
+            if(t < Tstart + R0_rs){
+                R0 = R0_i;
+            }
+            else if(t > Tstart +R0_rs + R0_rd){
+                R0 = R0_f;
+            }
+            else{
+                R0 = beta_ts[int((t-R0_rs-Tstart)/dte)];
+            }
+        }
+        if(R0_ramp == 3){
+            if(t < Tstart + R0_rs){
+                R0 = R0_i;
+            }
+            else if(t > Tstart +R0_rs + R0_rd){
+                R0 = R0_i;
+            }
+            else{
+                R0 = beta_ts[int((t-R0_rs-Tstart)/dte)];
+            }
+        }
+
+	    return(R0*forcing_function(t));
 	}
 
 	double beta_function(double t){
@@ -320,23 +387,6 @@ struct Parameters{
         return(gsl_ran_negative_binomial(r, nb_p,
                                   rep_dispersion));
     }
-
-/*
-
-	double vaccine_uptake(double t){
-	    double vu = v_i;
-	    double t_shift = t - Tstart;
-	    if( t_shift > ramp_start && t_shift <= ramp_end){
-	        vu = v_i + ramp_slope*(t_shift-ramp_start);
-	    }
-	    else if(t_shift > ramp_end){
-	        vu = v_i;
-	    }
-		return(vu);
-	}
-*/
-	//
-
 
 
 
@@ -449,120 +499,133 @@ struct Parameters{
     }
 
 
-    // this code may be used to incorporate future brownian bridge option
-
-
-	/*double beta;
-	double gamm;
-	double eta;
-	double timmune;
-	double N;
-	double Tend;
-	double runs;
-	std::string model;
-	double set_beta(double t, double max){return(t/max);}
-
-
 
 	//As presently coded the set_beta_* functions actually generate timeseries for R0, not beta
 	//hence in get_beta beta_ts is multiplied by gamm.
+    void set_beta(gsl_rng * rng){
+        if(R0_ramp == 2){
+            set_beta_brownian_bridge(rng);
+        }
+        else if(R0_ramp == 3){
+            set_beta_restricted_ou(rng);
+        }
+    }
 
-	std::vector<double> beta_ts;
-	double get_beta(double time, double interval){ return beta_ts[int(time/interval)];}
 
 	
-	void set_beta_brownian_bridge(double end_time, double interval, gsl_rng * rng, double variance, double curvature){
-		int n = int(end_time/interval);
-		double rt_interval = sqrt(interval*variance);
+	void set_beta_brownian_bridge(gsl_rng * rng){
+		int n = int(R0_rd/dte);
+		double rt_interval = sqrt(dte*bb_var);
 	    	std::vector<double> wp(n);
 	    	std::vector<double> bb(n);
 	    	int j = 0;
 	    	
 	    	while(j < n-1){
 	    		j = 0;
-			wp[0] = 0;
+			    wp[0] = 0;
 	
-			for(int i = 1; i <n; i++){
-				wp[i] = wp[i-1] + gsl_ran_gaussian(rng, rt_interval);
-			}
-	
-			for(int i = 0; i <n; i++){
-				bb[i] = wp[i] +pow(interval*i/end_time,curvature) - (interval*i/end_time)*wp[n-1];
-				if(bb[i] < 0 || bb[i] > 1) break;
-				j++;
-			}
+                for(int i = 1; i <n; i++){
+                    wp[i] = wp[i-1] + gsl_ran_gaussian(rng, rt_interval);
+                }
+
+                for(int i = 0; i <n; i++){
+                    bb[i] =  R0_i + (R0_f-R0_i)*(wp[i] +pow(dte*(i/R0_rd),bb_a) - (dte*i/R0_rd)*wp[n-1]);
+                    if(bb[i] < std::min(R0_i,R0_f) || bb[i] > std::max(R0_i,R0_f)) break;
+                    j++;
+                }
 		}
 		beta_ts = bb;			
 	}
-	
-	std::vector<double> brownian_bridge(double end_time, double interval, gsl_rng * rng, double variance, double curvature)
+
+	void set_beta_restricted_ou(gsl_rng * rng)
+	{
+		int n = int(R0_rd/dte);
+		double rt_interval = sqrt(dte*R0_ou_var);
+	    std::vector<double> wp(n);
+	    int j = 0;   	
+	    while(j < n-1){
+			j = 0;
+			wp[0] = gsl_ran_gaussian(rng, rt_interval/(2*R0_ou_drift)) + R0_i;
+			for(int i = 1; i <n; i++){
+				wp[i] = wp[i-1]  +R0_ou_drift*(R0_i-wp[i-1])  + gsl_ran_gaussian(rng, rt_interval);
+				if(wp[i] > R0_ou_upper_limit || wp[i] < R0_ou_lower_limit) break;
+				j++;
+			}
+		}
+		beta_ts = wp;			
+	}
+
+
+
+
+	/*
+
+	double vaccine_uptake(double t){
+	    double vu = v_i;
+	    double t_shift = t - Tstart;
+	    if( t_shift > ramp_start && t_shift <= ramp_end){
+	        vu = v_i + ramp_slope*(t_shift-ramp_start);
+	    }
+	    else if(t_shift > ramp_end){
+	        vu = v_i;
+	    }
+		return(vu);
+	}
+*/
+	//
+
+
+};
+
+
+
+
+/**
+
+
+
+	std::vector<double> brownian_bridge(double dtetime, double interval, gsl_rng * rng, double variance, double curvature)
 	{
 		int n = int(end_time/interval);
 		double rt_interval = sqrt(interval*variance);
 	    	std::vector<double> wp(n);
 	    	std::vector<double> bb(n);
 	    	int j = 0;
-	    	
+
 	    	while(j < n-1){
 	    		j = 0;
 				wp[0] = 0;
-		
+
 				for(int i = 1; i <n; i++){
 					wp[i] = wp[i-1] + gsl_ran_gaussian(rng, rt_interval);
 				}
-		
+
 				for(int i = 0; i <n; i++){
 					bb[i] = wp[i] +pow(interval*i/end_time,curvature) - (interval*i/end_time)*wp[n-1];
 					if(bb[i] < 0 || bb[i] > 1) break;
 					j++;
 				}
 			}
-		return bb;			
+		return bb;
 	}
 
-	void set_beta_restricted_bm(double end_time, double interval, gsl_rng * rng, double variance, 
+	void set_beta_restricted_bm(double end_time, double interval, gsl_rng * rng, double variance,
 					  double initial_value, double lower_limit, double upper_limit)
 	{
 		int n = int(end_time/interval);
 		double rt_interval = sqrt(interval*variance);
 	    std::vector<double> wp(n);
-	    int j = 0;   	
+	    int j = 0;
 		while(j < n-1){
 			j = 0;
-			wp[0] = initial_value;	
+			wp[0] = initial_value;
 			for(int i = 1; i <n; i++){
 				wp[i] = wp[i-1] + gsl_ran_gaussian(rng, rt_interval);
 				if(wp[i] > upper_limit || wp[i] < lower_limit) break;
 				j++;
 			}
 		}
-		beta_ts = wp;			
+		beta_ts = wp;
 	}
-
-	void set_beta_restricted_ou(double end_time, double interval, gsl_rng * rng, double drift, double variance, 
-		                        double initial_value, double lower_limit, double upper_limit)
-	{
-		int n = int(end_time/interval);
-		double rt_interval = sqrt(interval*variance);
-	    std::vector<double> wp(n);
-	    int j = 0;   	
-	    while(j < n-1){
-			j = 0;
-			wp[0] = gsl_ran_gaussian(rng, rt_interval/(2*drift)) + initial_value;	
-			for(int i = 1; i <n; i++){
-				wp[i] = wp[i-1]  +drift*(initial_value-wp[i-1])  + gsl_ran_gaussian(rng, rt_interval);
-				if(wp[i] > upper_limit || wp[i] < lower_limit) break;
-				j++;
-			}
-		}
-		beta_ts = wp;			
-	}
-
-
 
 	*/
-	
-};
-
-
-

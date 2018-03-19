@@ -34,6 +34,8 @@ int main(int argc, char **argv)
 	gsl_rng * rng = gsl_rng_alloc (gsl_rng_taus);
 	gsl_rng_set (rng, rand());
 
+	par.set_beta(rng);
+
     std::string filename = par.folder + "/"+ par.run_name + ".csv";
     out.open(filename.c_str());
 
