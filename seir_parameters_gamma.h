@@ -101,8 +101,8 @@ struct Parameters{
 	double bb_a =1;
 	double R0_ou_drift =0.1;
     double R0_ou_var=0.00001;
-    double R0_ou_lower_limit=0;
-    double R0_ou_upper_limit=1;
+    double R0_lower_limit=0;
+    double R0_upper_limit=1;
 
 
 
@@ -247,11 +247,11 @@ struct Parameters{
             if(ts.substr(0, 5).compare("ou_v=") == 0){
 		       R0_ou_var = std::stof(ts.substr(5));
 		    }
-            if(ts.substr(0, 5).compare("ou_l=") == 0){
-		       R0_ou_lower_limit = std::stof(ts.substr(5));
+            if(ts.substr(0, 5).compare("R0_l=") == 0){
+		       R0_lower_limit = std::stof(ts.substr(5));
 		    }
-            if(ts.substr(0, 5).compare("ou_u=") == 0){
-		       R0_ou_upper_limit = std::stof(ts.substr(5));
+            if(ts.substr(0, 5).compare("R0_u=") == 0){
+		       R0_upper_limit = std::stof(ts.substr(5));
 		    }
 
 
@@ -533,7 +533,7 @@ struct Parameters{
 
                 for(int i = 0; i <n; i++){
                     bb[i] =  R0_i + (R0_f-R0_i)*(wp[i] +pow(dte*(i/R0_rd),bb_a) - (dte*i/R0_rd)*wp[n-1]);
-                    if(bb[i] < std::min(R0_i,R0_f) || bb[i] > std::max(R0_i,R0_f)) break;
+                    if(bb[i] > R0_upper_limit || bb[i] < R0_lower_limit) break;
                     j++;
                 }
 		}
@@ -551,7 +551,7 @@ struct Parameters{
 			wp[0] = gsl_ran_gaussian(rng, rt_interval/(2*R0_ou_drift)) + R0_i;
 			for(int i = 1; i <n; i++){
 				wp[i] = wp[i-1]  +R0_ou_drift*(R0_i-wp[i-1])  + gsl_ran_gaussian(rng, rt_interval);
-				if(wp[i] > R0_ou_upper_limit || wp[i] < R0_ou_lower_limit) break;
+				if(wp[i] > R0_upper_limit || wp[i] < R0_lower_limit) break;
 				j++;
 			}
 		}

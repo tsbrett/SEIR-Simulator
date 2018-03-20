@@ -34,8 +34,6 @@ int main(int argc, char **argv)
 	gsl_rng * rng = gsl_rng_alloc (gsl_rng_taus);
 	gsl_rng_set (rng, rand());
 
-	par.set_beta(rng);
-
     std::string filename = par.folder + "/"+ par.run_name + ".csv";
     out.open(filename.c_str());
 
@@ -57,7 +55,8 @@ int main(int argc, char **argv)
         int nu;
         double dt;
         double te = 0;
-        //fix to ensure initial beta is used
+
+        par.set_beta(rng);
         par.set_initial_conditions(n);
 
 
@@ -75,8 +74,7 @@ int main(int argc, char **argv)
 
         while(t < par.Tend){
             // Updating the reaction rates:
-            //par.beta = par.get_beta(t,bb_step);//par.set_beta(t,par.Tend);
-            par.reactions_update(n,  a, t); //par.vaccine_uptake(t), par.forcing_function(t));
+            par.reactions_update(n,  a, t);
             // Calculating which reaction fires next:
             dt = par.Tend;
             for(int k = 0; k < a_no; k++){
@@ -87,6 +85,7 @@ int main(int argc, char **argv)
             }
 
             // Output (while loop incase time-to-next reaction (dt) is larger than one timestep)
+            // Note: present implementation of time varying parameters assumes rate of change << dte
             while(t+dt > te){
                 if(te >= par.Tstart){
                      out << te-par.Tstart<< ",";
