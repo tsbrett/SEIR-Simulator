@@ -548,7 +548,8 @@ struct Parameters{
 	    int j = 0;   	
 	    while(j < n-1){
 			j = 0;
-			wp[0] = gsl_ran_gaussian(rng, rt_interval/(2*R0_ou_drift)) + R0_i;
+			// initialise OU process at the initial value
+			wp[0] = R0_i; //  gsl_ran_gaussian(rng, rt_interval/(2*R0_ou_drift)) +
 			for(int i = 1; i <n; i++){
 				wp[i] = wp[i-1]  +R0_ou_drift*(R0_i-wp[i-1])  + gsl_ran_gaussian(rng, rt_interval);
 				if(wp[i] > R0_upper_limit || wp[i] < R0_lower_limit) break;
