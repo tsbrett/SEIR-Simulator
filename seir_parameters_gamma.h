@@ -100,9 +100,11 @@ struct Parameters{
 	double bb_var =0.00001;
 	double bb_a =1;
 	double R0_ou_drift =0.1;
-    double R0_ou_var=0.00001;
-    double R0_lower_limit=0;
-    double R0_upper_limit=1;
+	double R0_ou_var=0.00001;
+	double R0_lower_limit=0;
+	double R0_upper_limit=1;
+	
+        double eta_forcing=0;
 
 
 
@@ -253,11 +255,14 @@ struct Parameters{
             if(ts.substr(0, 5).compare("R0_u=") == 0){
 		       R0_upper_limit = std::stof(ts.substr(5));
 		    }
-
-
-
+	    if(ts.substr(0, 10).compare("eta_force=") == 0){
+		if(ts.substr(10,15).compare("false") == 0){ eta_forcing = 0;}
+	    	else if(ts.substr(10,14).compare("true") == 0){ eta_forcing = 1;}
+	    	else{std::cerr << "Invalid argument to force. Default used: false" << std::endl;}
 		}
 
+
+	    }
 	    Tend = Tstart + Tdur;
 	}
 	std::vector<double> beta_ts;
@@ -329,7 +334,10 @@ struct Parameters{
 
 
 	double eta_function(double t){
-	    return(ramp_function(t,eta_rd,eta_rs,eta_i,eta_f));
+		double df = ramp_function(t,eta_rd,eta_rs,eta_i,eta_f);
+		if(eta_forcing == 1) return(df*forcing_function(t));
+		else return(df);
+	   // return(ramp_function(t,eta_rd,eta_rs,eta_i,eta_f)*forcing_function(t) );
 	}
 
 	double rep_prob_function(double t){
